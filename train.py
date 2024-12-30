@@ -158,7 +158,7 @@ for step, token_batch in enumerate(training_dataloader):
         wandb.log({"lm_loss": lm_loss.item()})
         wandb.log({"mtp_loss": mtp_loss.item()})
     if step %1000 == 0:
-        model.save_pretrained("mtp-llm-0.5B")
+        model.save_pretrained("mtp-llm-0.5B-1280-10-12-2")
 
 
 

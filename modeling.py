@@ -104,7 +104,7 @@ class MTP(nn.Module):
         x = self.transformer(x)
         return x
 
-@torch.compile
+
 class MTP_LLM(nn.Module):
     def __init__(self,vocab_size, input_dim, num_heads, num_layers, max_seq_len=1024, num_mtps=1):
         super(MTP_LLM, self).__init__()
@@ -113,7 +113,7 @@ class MTP_LLM(nn.Module):
         self.mtps = nn.ModuleList([MTP(input_dim, num_heads, max_seq_len) for _ in range(num_mtps)])
         self.unembed = nn.Linear(input_dim, vocab_size)
         self.max_seq_len = max_seq_len
-
+    @torch.compile
     def forward(self, x):
         #x is of shape (batch_size, max_seq_len+num_mtps)
         tot_embeddings = self.embed(x)
