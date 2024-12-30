@@ -78,7 +78,7 @@ dataset = SlimPajamaDataset(split="train/chunk1")
 
 # Hyperparameters
 VOCAB_SIZE = tokenizer.vocab_size
-BATCH_SIZE = 8
+BATCH_SIZE = 256
 NUM_LAYERS = 12
 HIDDEN_SIZE = 1280
 NUM_ATTN_HEADS = 10
