@@ -13,8 +13,8 @@ class GatedMLP(nn.Module):
 
     def forward(self, x):
         #x is of shape (batch_size, seq_len, input_dim)
-        x = self.in_proj(x)
         gate = self.gate_fc(x)
+        x = self.in_proj(x)
         gate = self.silu(gate)
         x = gate * x
         x = self.out_proj(x)
@@ -26,7 +26,7 @@ class RMSNorm(nn.Module):
         self.eps = eps
         self.weight = nn.Parameter(torch.ones(dim))
 
-    def _norm(self, x):
+    def forward(self, x):
         normed = x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
         scaled = normed * self.weight
         return scaled
@@ -44,6 +44,7 @@ class CausalSelfAttention(nn.Module):
 
     def forward(self, x):
         #x is of shape (batch_size, seq_len, input_dim)
+        batch_size, seq_len, _ = x.shape
         q = self.Q_proj(x)
         q = q.reshape(batch_size, seq_len, self.num_heads, self.head_dim)
         k = self.K_proj(x)
@@ -69,8 +70,8 @@ class CausalSelfAttention(nn.Module):
         return x
 
 class TransformerBlock(nn.Module):
-    #implements a single transformer block, with pre-norm, and absolute position embedding (2048 max seq len)
-    def __init__(self, input_dim, num_heads, max_seq_len=2048):
+    #implements a single transformer block, with pre-norm, and absolute position embedding (1024 max seq len)
+    def __init__(self, input_dim, num_heads, max_seq_len=1024):
         super(TransformerBlock, self).__init__()
         self.norm1 = RMSNorm(input_dim)
         self.attn = CausalSelfAttention(input_dim, num_heads)
@@ -88,16 +89,44 @@ class TransformerBlock(nn.Module):
         x = x + self.mlp(self.norm2(x))
         return x
 
-class LLM(nn.Module):
-    def __init__(self,vocab_size, input_dim, num_heads, num_layers, max_seq_len=2048):
-        super(LLM, self).__init__()
+class MTP(nn.Module):
+    def __init__(self, input_dim, num_heads, max_seq_len):
+        super(MTP, self).__init__()
+        self.transformer = TransformerBlock(input_dim, num_heads, max_seq_len)
+        self.norm1 = RMSNorm(input_dim)
+        self.norm2 = RMSNorm(input_dim)
+        self.linear = nn.Linear(input_dim*2, input_dim)
+    def forward(self, past_hidden_states, token_embedding):
+        x = self.norm1(past_hidden_states)
+        y = self.norm2(token_embedding)
+        x = torch.cat([x, y], dim=-1)
+        x = self.linear(x)
+        x = self.transformer(x)
+        return x
+
+
+class MTP_LLM(nn.Module):
+    def __init__(self,vocab_size, input_dim, num_heads, num_layers, max_seq_len=1024, num_mtps=1):
+        super(MTP_LLM, self).__init__()
         self.embed = nn.Embedding(vocab_size, input_dim)
         self.blocks = nn.ModuleList([TransformerBlock(input_dim, num_heads, max_seq_len) for _ in range(num_layers)])
+        self.mtps = nn.ModuleList([MTP(input_dim, num_heads, max_seq_len) for _ in range(num_mtps)])
         self.unembed = nn.Linear(input_dim, vocab_size)
+        self.max_seq_len = max_seq_len
 
     def forward(self, x):
-        x = self.embed(x)
+        #x is of shape (batch_size, max_seq_len+num_mtps)
+        tot_embeddings = self.embed(x)
+        x = tot_embeddings[:, :self.max_seq_len]
         for block in self.blocks:
             x = block(x)
-        x = self.unembed(x)
-        return x
+        outputs = [self.unembed(x).unsqueeze(1)]
+        for mtp in range(len(self.mtps)):
+            x = self.mtps[mtp](x, tot_embeddings[:, mtp+1:self.max_seq_len+mtp+1])
+            outputs.append(self.unembed(x).unsqueeze(1))
+        return torch.stack(outputs, dim=1)
+
+
+if __name__ == "__main__":
+    model = MTP_LLM(50257,  192, 4, 8, num_mtps=0)
+    print("total params: ", sum(p.numel() for p in model.parameters()))
