@@ -157,6 +157,39 @@ for step, token_batch in enumerate(training_dataloader):
         wandb.log({"loss": loss.item()})
         wandb.log({"lm_loss": lm_loss.item()})
         wandb.log({"mtp_loss": mtp_loss.item()})
+        #compute top5 accuracy of model predictions on the given batch
+        indices = torch.topk(lm_output, k=5, dim=-1).indices
+        targets_flat = targets.view(-1)
+        indices_flat = indices.view(-1, 5)
+        
+        valid_mask = targets_flat != -100
+        valid_targets = targets_flat[valid_mask]
+        valid_indices = indices_flat[valid_mask]
+        
+        correct = (valid_indices == valid_targets.unsqueeze(-1)).any(dim=-1)
+        acc = correct.sum().item() / (valid_mask.sum().item() + 1e-8)
+        wandb.log({"lm_top5_acc": acc})
+
+        # Calculate top-5 accuracy for each MTP head
+        for mtp_idx in range(NUM_MTPS):
+            mtp_output = mtp_outputs[:, mtp_idx,:, :]
+            mtp_target = mtp_targets[:, mtp_idx]
+            
+            indices = torch.topk(mtp_output, k=5, dim=-1).indices
+            targets_flat = mtp_target.view(-1)
+            indices_flat = indices.view(-1, 5)
+            
+            valid_mask = targets_flat != -100
+            valid_targets = targets_flat[valid_mask]
+            valid_indices = indices_flat[valid_mask]
+            
+            correct = (valid_indices == valid_targets.unsqueeze(-1)).any(dim=-1)
+            acc = correct.sum().item() / (valid_mask.sum().item() + 1e-8)
+            wandb.log({f"mtp{mtp_idx+1}_top5_acc": acc})
+        
+
+
+
     if step %1000 == 0:
         model.save_pretrained("mtp-llm-0.5B-1280-10-12-2")
 
