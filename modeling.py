@@ -104,7 +104,7 @@ class MTP(nn.Module):
         x = self.transformer(x)
         return x
 
-
+@torch.compile
 class MTP_LLM(nn.Module):
     def __init__(self,vocab_size, input_dim, num_heads, num_layers, max_seq_len=1024, num_mtps=1):
         super(MTP_LLM, self).__init__()
