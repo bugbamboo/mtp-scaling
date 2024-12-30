@@ -79,10 +79,10 @@ dataset = SlimPajamaDataset(split="train/chunk1")
 # Hyperparameters
 VOCAB_SIZE = tokenizer.vocab_size
 BATCH_SIZE = 8
-NUM_LAYERS = 4
-HIDDEN_SIZE = 192
-NUM_ATTN_HEADS = 4
-NUM_MTPS = 1
+NUM_LAYERS = 12
+HIDDEN_SIZE = 1280
+NUM_ATTN_HEADS = 10
+NUM_MTPS = 2
 MAX_LENGTH = 1024
 LAMBDA = 0.1
 
@@ -148,7 +148,7 @@ for step, token_batch in enumerate(training_dataloader):
     lm_loss = -torch.mean(lm_output.view(-1, lm_output.size(-1)).index_select(0, targets.view(-1))[targets != -100])
     mtp_loss = -torch.mean(mtp_outputs.view(-1, mtp_outputs.size(-1)).index_select(0, mtp_targets.view(-1))[mtp_targets != -100])
 
-    
+    loss = lm_loss + LAMBDA * mtp_loss
     accelerator.backward(loss)
     optimizer.step()
     scheduler.step()
@@ -157,6 +157,8 @@ for step, token_batch in enumerate(training_dataloader):
         wandb.log({"loss": loss.item()})
         wandb.log({"lm_loss": lm_loss.item()})
         wandb.log({"mtp_loss": mtp_loss.item()})
+    if step %1000 == 0:
+        model.save_pretrained("mtp-llm-0.5B")
 
 
 
