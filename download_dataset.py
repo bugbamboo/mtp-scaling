@@ -4,6 +4,7 @@ import torch
 from torch.utils.data import TensorDataset
 from multiprocessing import Pool
 from tqdm import tqdm
+import numpy as np
 
 CHUNK_LENGTH = 1030
 PADDING_TOKEN = 50256
@@ -39,7 +40,7 @@ def batch_iterator(dataset, batch_size):
 def main():
     all_chunks = []
     results = []
-    with Pool(processes=4) as pool:  # 4 workers * 16 threads each = 64 threads
+    with Pool(processes=8) as pool:  # 4 workers * 16 threads each = 64 threads
         with tqdm(total=TOTAL_EXAMPLES, desc="Processing examples") as pbar:
             # Submit all batches to the pool
             for text_batch in batch_iterator(dataset, BATCH_SIZE):
@@ -52,7 +53,7 @@ def main():
     
     # Convert the list of chunks to a tensor
     print("Converting to tensor...")
-    tensor_data = torch.tensor(all_chunks, dtype=torch.long)
+    tensor_data = torch.tensor(np.array(all_chunks), dtype=torch.long)
     
     # Create a TensorDataset
     tensor_dataset = TensorDataset(tensor_data)
