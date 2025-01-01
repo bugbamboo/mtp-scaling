@@ -70,6 +70,7 @@ model, optimizer, training_dataloader, scheduler = accelerator.prepare(
 
 
 for step, token_batch in tqdm(enumerate(training_dataloader)):
+    table = wandb.Table(columns=["prompt", "generated_text"])
     optimizer.zero_grad()
     tokens = token_batch
     targets = tokens[:, 1:MAX_LENGTH+1]
@@ -124,7 +125,12 @@ for step, token_batch in tqdm(enumerate(training_dataloader)):
             acc = correct.sum().item() / (valid_mask.sum().item() + 1e-8)
             wandb.log({f"mtp{mtp_idx+1}_top5_acc": acc})
     if step %1000 == 0:
-
+        prompts = ["Hello, my name is ", "Jeffery Epstein was a ", "The Eiffel Tower is in ","Wh"]
+        generated_texts = []
+        for prompt in prompts:
+            generated_texts.append(model.generate(prompt))
+        table.add_data(prompts, generated_texts)
+        wandb.log({f"generated_texts_step_{step}": table})
         model.save_pretrained("mtp-llm-0.5B-1280-10-12-2")
 
 

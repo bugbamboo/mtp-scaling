@@ -136,7 +136,7 @@ class MTP_LLM(nn.Module):
         outputs = self.unembed(x)
         return outputs
 
-    def generate(self, input_string, num_tokens=100): 
+    def generate(self, input_string, num_tokens=50): 
         encoded_input = self.tokenizer.encode(input_string)
         prompt_len = len(encoded_input)
 
