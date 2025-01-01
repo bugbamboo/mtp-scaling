@@ -126,6 +126,8 @@ class MTP_LLM(nn.Module):
             outputs.append(self.unembed(x).unsqueeze(1))
         return torch.stack(outputs, dim=1)
 
+    def generate(self, x, max_seq_len=1024): 
+        
 
 if __name__ == "__main__":
     model = MTP_LLM(50257,  192, 4, 8, num_mtps=0)

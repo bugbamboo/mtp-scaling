@@ -7,7 +7,8 @@ from multiprocessing import Pool
 CHUNK_LENGTH = 1030
 PADDING_TOKEN = 50256
 BATCH_SIZE = 1000
-
+tokenizer = tiktoken.encoding_for_model('gpt2')
+dataset = ds.load_dataset("HuggingFaceFW/fineweb-edu","sample-10BT",split="train",streaming=True)
 def process_batch(text_batch):
     # Tokenize the batch with 16 threads
     tokenized = tokenizer.encode_ordinary_batch(text_batch, num_threads=16)
@@ -33,8 +34,7 @@ def batch_iterator(dataset, batch_size):
         yield batch
 
 def main():
-    tokenizer = tiktoken.encoding_for_model('gpt2')
-    dataset = ds.load_dataset("HuggingFaceFW/fineweb-edu","sample-10BT",split="train",streaming=True)
+
     with Pool(processes=4) as pool:  # 4 workers * 16 threads each = 64 threads
         all_chunks = []
         for text_batch in batch_iterator(dataset, BATCH_SIZE):
@@ -49,7 +49,7 @@ def main():
         tensor_dataset = TensorDataset(tensor_data)
         
         # Save the TensorDataset to disk
-        torch.save(tensor_dataset, 'tensor_dataset.pt')
+        torch.save(tensor_dataset, 'fineweb_edu_10BT.pt')
 
 if __name__ == "__main__":
     main()

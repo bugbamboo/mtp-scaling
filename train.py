@@ -1,22 +1,18 @@
 
 
 import torch
-from torch.utils.data import Dataset, DataLoader
-from datasets import load_dataset
-from transformers import GPT2Tokenizer
+from torch.utils.data import TensorDataset, DataLoader
 from accelerate import Accelerator
-import random
 from modeling import MTP_LLM
 import torch.nn.functional as F
 import wandb
+import tqdm
 seed = 42
 torch.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)
 accelerator = Accelerator(mixed_precision="fp16")
-
-
-
-
+dataset = torch.load('fineweb_edu_10BT.pt')
+dataset = TensorDataset(dataset)
 
 # Hyperparameters
 VOCAB_SIZE = 50257
@@ -42,8 +38,7 @@ model = MTP_LLM(VOCAB_SIZE, HIDDEN_SIZE, NUM_ATTN_HEADS, NUM_LAYERS, MAX_LENGTH,
 training_dataloader = DataLoader(
     dataset,
     batch_size=BATCH_SIZE,
-    shuffle=True,
-    collate_fn=lambda batch: slim_pajama_collate_fn(batch, tokenizer, MAX_LENGTH+NUM_MTPS+1)
+    shuffle=True
 )
 
 max_lr = 6e-4
@@ -74,7 +69,7 @@ model, optimizer, training_dataloader, scheduler = accelerator.prepare(
 )
 
 
-for step, token_batch in enumerate(training_dataloader):
+for step, token_batch in tqdm(enumerate(training_dataloader)):
     optimizer.zero_grad()
     tokens = token_batch
     targets = tokens[:, 1:MAX_LENGTH+1]
@@ -128,11 +123,8 @@ for step, token_batch in enumerate(training_dataloader):
             correct = (valid_indices == valid_targets.unsqueeze(-1)).any(dim=-1)
             acc = correct.sum().item() / (valid_mask.sum().item() + 1e-8)
             wandb.log({f"mtp{mtp_idx+1}_top5_acc": acc})
-        
-
-
-
     if step %1000 == 0:
+
         model.save_pretrained("mtp-llm-0.5B-1280-10-12-2")
 
 
