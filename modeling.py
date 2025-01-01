@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
+import tiktoken
 
 class GatedMLP(nn.Module):
     def __init__(self, input_dim):
@@ -10,6 +11,7 @@ class GatedMLP(nn.Module):
         self.gate_fc = nn.Linear(input_dim, self.hidden_dim)
         self.out_proj = nn.Linear(self.hidden_dim, input_dim)
         self.silu = nn.SiLU()
+        self.tokenizer = tiktoken.encoding_for_model('gpt2')
 
     def forward(self, x):
         #x is of shape (batch_size, seq_len, input_dim)
@@ -125,10 +127,34 @@ class MTP_LLM(nn.Module):
             x = self.mtps[mtp](x, tot_embeddings[:, mtp+1:self.max_seq_len+mtp+1])
             outputs.append(self.unembed(x).unsqueeze(1))
         return torch.stack(outputs, dim=1)
+    @torch.compile
+    def generation_forward(self, x):
+        #generation with no mtps, for evals
+        x = self.embed(x)
+        for block in self.blocks:
+            x = block(x)
+        outputs = self.unembed(x)
+        return outputs
 
-    def generate(self, x, max_seq_len=1024): 
-        
+    def generate(self, input_string, num_tokens=100): 
+        encoded_input = self.tokenizer.encode(input_string)
+        prompt_len = len(encoded_input)
 
+        padded_input = self.pad(encoded_input)
+        tensor_input = torch.tensor(padded_input).unsqueeze(0)
+        output = self.generation_forward(tensor_input)
+        for _ in range(num_tokens):
+            next_token = output[0, prompt_len-1].argmax(dim=-1).item()
+            encoded_input.append(next_token)
+            padded_input = self.pad(encoded_input)
+            tensor_input = torch.tensor(padded_input).unsqueeze(0)
+            output = self.generation_forward(tensor_input)
+            if next_token == 50256:
+                break
+        return self.tokenizer.decode(output[0, -1].argmax(dim=-1).tolist())
+    def pad(self, encoded_input):
+        return encoded_input + [50256] * (self.max_seq_len - len(encoded_input))
+    
 if __name__ == "__main__":
     model = MTP_LLM(50257,  192, 4, 8, num_mtps=0)
     print("total params: ", sum(p.numel() for p in model.parameters()))
