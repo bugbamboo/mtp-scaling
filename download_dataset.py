@@ -3,6 +3,7 @@ import tiktoken
 import torch
 from torch.utils.data import TensorDataset
 from multiprocessing import Pool
+from tqdm import tqdm
 
 CHUNK_LENGTH = 1030
 PADDING_TOKEN = 50256
@@ -25,7 +26,7 @@ def process_batch(text_batch):
 
 def batch_iterator(dataset, batch_size):
     batch = []
-    for example in dataset:
+    for example in tqdm(dataset, desc="Processing examples"):
         batch.append(example['text'])
         if len(batch) == batch_size:
             yield batch
@@ -34,22 +35,29 @@ def batch_iterator(dataset, batch_size):
         yield batch
 
 def main():
-
     with Pool(processes=4) as pool:  # 4 workers * 16 threads each = 64 threads
         all_chunks = []
-        for text_batch in batch_iterator(dataset, BATCH_SIZE):
-            # Asynchronously process each batch
-            result = pool.apply_async(process_batch, args=(text_batch,))
+        results = []
+        
+        # First submit all batches to pool
+        for text_batch in tqdm(batch_iterator(dataset, BATCH_SIZE), desc="Submitting batches"):
+            results.append(pool.apply_async(process_batch, args=(text_batch,)))
+            
+        # Then collect results with progress bar
+        for result in tqdm(results, desc="Processing batches"):
             all_chunks.extend(result.get())
         
         # Convert the list of chunks to a tensor
+        print("Converting to tensor...")
         tensor_data = torch.tensor(all_chunks, dtype=torch.long)
         
         # Create a TensorDataset
         tensor_dataset = TensorDataset(tensor_data)
         
         # Save the TensorDataset to disk
+        print("Saving dataset...")
         torch.save(tensor_dataset, 'fineweb_edu_10BT.pt')
+        print("Done!")
 
 if __name__ == "__main__":
     main()
