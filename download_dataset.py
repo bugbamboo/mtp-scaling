@@ -8,8 +8,10 @@ from tqdm import tqdm
 CHUNK_LENGTH = 1030
 PADDING_TOKEN = 50256
 BATCH_SIZE = 1000000
+TOTAL_EXAMPLES = 10_000_000
 tokenizer = tiktoken.encoding_for_model('gpt2')
-dataset = ds.load_dataset("HuggingFaceFW/fineweb-edu","sample-10BT",split="train",streaming=True)
+dataset = ds.load_dataset("HuggingFaceFW/fineweb-edu", "sample-10BT", split="train", streaming=True)
+
 def process_batch(text_batch):
     # Tokenize the batch with 16 threads
     tokenized = tokenizer.encode_ordinary_batch(text_batch, num_threads=16)
@@ -26,7 +28,7 @@ def process_batch(text_batch):
 
 def batch_iterator(dataset, batch_size):
     batch = []
-    for example in tqdm(dataset, desc="Processing examples"):
+    for example in dataset:
         batch.append(example['text'])
         if len(batch) == batch_size:
             yield batch
@@ -35,29 +37,30 @@ def batch_iterator(dataset, batch_size):
         yield batch
 
 def main():
+    all_chunks = []
+    results = []
     with Pool(processes=4) as pool:  # 4 workers * 16 threads each = 64 threads
-        all_chunks = []
-        results = []
+        with tqdm(total=TOTAL_EXAMPLES, desc="Processing examples") as pbar:
+            # Submit all batches to the pool
+            for text_batch in batch_iterator(dataset, BATCH_SIZE):
+                results.append(pool.apply_async(process_batch, args=(text_batch,)))
+                pbar.update(len(text_batch))
         
-        # First submit all batches to pool
-        for text_batch in tqdm(batch_iterator(dataset, BATCH_SIZE), desc="Submitting batches"):
-            results.append(pool.apply_async(process_batch, args=(text_batch,)))
-            
-        # Then collect results with progress bar
-        for result in tqdm(results, desc="Processing batches"):
+        # Collect all results without an additional progress bar
+        for result in results:
             all_chunks.extend(result.get())
-        
-        # Convert the list of chunks to a tensor
-        print("Converting to tensor...")
-        tensor_data = torch.tensor(all_chunks, dtype=torch.long)
-        
-        # Create a TensorDataset
-        tensor_dataset = TensorDataset(tensor_data)
-        
-        # Save the TensorDataset to disk
-        print("Saving dataset...")
-        torch.save(tensor_dataset, 'fineweb_edu_10BT.pt')
-        print("Done!")
+    
+    # Convert the list of chunks to a tensor
+    print("Converting to tensor...")
+    tensor_data = torch.tensor(all_chunks, dtype=torch.long)
+    
+    # Create a TensorDataset
+    tensor_dataset = TensorDataset(tensor_data)
+    
+    # Save the TensorDataset to disk
+    print("Saving dataset...")
+    torch.save(tensor_dataset, 'fineweb_edu_10BT.pt')
+    print("Done!")
 
 if __name__ == "__main__":
     main()
