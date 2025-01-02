@@ -2,12 +2,12 @@ import datasets as ds
 import tiktoken
 import torch
 from torch.utils.data import TensorDataset
-from multiprocessing import Pool
 import numpy as np
+import tqdm
 
 CHUNK_LENGTH = 1030
 PADDING_TOKEN = 50256
-BATCH_SIZE = 20000
+BATCH_SIZE = 50000
 TOTAL_EXAMPLES = 10_000_000
 tokenizer = tiktoken.encoding_for_model('gpt2')
 dataset = ds.load_dataset("HuggingFaceFW/fineweb-edu", "sample-10BT", split="train", streaming=True)
@@ -38,14 +38,8 @@ def batch_iterator(dataset, batch_size):
 
 def main():
     all_chunks = []
-    results = []
-    with Pool(processes=8) as pool:  # 4 workers * 16 threads each = 64 threads
-        for text_batch in batch_iterator(dataset, BATCH_SIZE):
-            results.append(pool.apply_async(process_batch, args=(text_batch,)))
-        
-        # Collect all results without an additional progress bar
-        for result in results:
-            all_chunks.extend(result.get())
+    for batch in tqdm(batch_iterator(dataset, BATCH_SIZE), desc="Processing batches"):
+        all_chunks.extend(process_batch(batch))
     
     # Convert the list of chunks to a tensor
     print("Converting to tensor...")
