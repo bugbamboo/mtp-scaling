@@ -3,7 +3,7 @@ import tiktoken
 import torch
 from torch.utils.data import TensorDataset
 import numpy as np
-import tqdm
+from tqdmimport tqdm
 
 CHUNK_LENGTH = 1030
 PADDING_TOKEN = 50256
