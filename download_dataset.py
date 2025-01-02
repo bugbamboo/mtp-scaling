@@ -8,10 +8,10 @@ import tqdm
 CHUNK_LENGTH = 1030
 PADDING_TOKEN = 50256
 BATCH_SIZE = 50000
-TOTAL_EXAMPLES = 10_000_000
-tokenizer = tiktoken.encoding_for_model('gpt2')
-dataset = ds.load_dataset("HuggingFaceFW/fineweb-edu", "sample-10BT", split="train", streaming=True)
 
+tokenizer = tiktoken.encoding_for_model('gpt2')
+dataset = ds.load_dataset("HuggingFaceFW/fineweb-edu", "sample-10BT", split="train")
+TOTAL_EXAMPLES = len(dataset)
 def process_batch(text_batch):
     # Tokenize the batch with 16 threads
     tokenized = tokenizer.encode_ordinary_batch(text_batch, num_threads=16)
@@ -38,9 +38,9 @@ def batch_iterator(dataset, batch_size):
 
 def main():
     all_chunks = []
-    for batch in tqdm(batch_iterator(dataset, BATCH_SIZE),total=TOTAL_EXAMPLES//BATCH_SIZE, desc="Processing batches"):
-        all_chunks.extend(process_batch(batch))
-    
+    for i, batch in enumerate(tqdm(batch_iterator(dataset, BATCH_SIZE), total=TOTAL_EXAMPLES//BATCH_SIZE, desc="Processing batches")):
+        chunks = process_batch(batch)
+        all_chunks.extend(chunks)
     # Convert the list of chunks to a tensor
     print("Converting to tensor...")
     tensor_data = torch.tensor(np.array(all_chunks), dtype=torch.long)
