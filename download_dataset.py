@@ -9,6 +9,7 @@ CHUNK_LENGTH = 1030
 PADDING_TOKEN = 50256
 BATCH_SIZE = 10000
 
+
 tokenizer = tiktoken.encoding_for_model('gpt2')
 dataset = ds.load_dataset("HuggingFaceFW/fineweb-edu", "sample-10BT", split="train")
 TOTAL_EXAMPLES = len(dataset)
@@ -41,16 +42,13 @@ def main():
     for i, batch in enumerate(tqdm(batch_iterator(dataset, BATCH_SIZE), total=TOTAL_EXAMPLES//BATCH_SIZE, desc="Processing batches")):
         chunks = process_batch(batch)
         all_chunks.extend(chunks)
-    # Convert the list of chunks to a tensor
-    print("Converting to tensor...")
-    tensor_data = torch.tensor(np.array(all_chunks), dtype=torch.long)
-    
-    # Create a TensorDataset
-    tensor_dataset = TensorDataset(tensor_data)
-    
-    # Save the TensorDataset to disk
+    # Convert the list of chunks to an array
+    print("Converting to array...")
+    print(len(all_chunks))
+    data = np.array(all_chunks)
+    # Save the array to disk
     print("Saving dataset...")
-    torch.save(tensor_dataset, 'fineweb_edu_10BT.pt')
+    np.save('fineweb_edu_10BT.npy', data)
     print("Done!")
 
 if __name__ == "__main__":
