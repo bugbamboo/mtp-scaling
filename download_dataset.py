@@ -44,7 +44,7 @@ def main():
         all_chunks.extend(chunks)
     # Convert the list of chunks to an array
     print("Converting to array...")
-    print(len(all_chunks))
+    print(f"length: {len(all_chunks)}")
     data = np.array(all_chunks)
     # Save the array to disk
     print("Saving dataset...")
