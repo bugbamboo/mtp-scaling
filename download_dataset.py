@@ -14,7 +14,7 @@ dataset = ds.load_dataset("HuggingFaceFW/fineweb-edu", "sample-10BT", split="tra
 TOTAL_EXAMPLES = len(dataset)
 def process_batch(text_batch):
     # Tokenize the batch with 16 threads
-    tokenized = tokenizer.encode_ordinary_batch(text_batch, num_threads=16)
+    tokenized = tokenizer.encode_ordinary_batch(text_batch, num_threads=64)
     processed_chunks = []
     for tokens in tokenized:
         # Split tokens into chunks of CHUNK_LENGTH
