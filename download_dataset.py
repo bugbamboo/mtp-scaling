@@ -38,7 +38,7 @@ def batch_iterator(dataset, batch_size):
 
 def main():
     all_chunks = []
-    for batch in tqdm(batch_iterator(dataset, BATCH_SIZE), desc="Processing batches"):
+    for batch in tqdm(batch_iterator(dataset, BATCH_SIZE),total=TOTAL_EXAMPLES//BATCH_SIZE, desc="Processing batches"):
         all_chunks.extend(process_batch(batch))
     
     # Convert the list of chunks to a tensor
