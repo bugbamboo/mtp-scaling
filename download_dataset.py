@@ -7,14 +7,14 @@ from tqdm import tqdm
 
 CHUNK_LENGTH = 1030
 PADDING_TOKEN = 50256
-BATCH_SIZE = 50000
+BATCH_SIZE = 10000
 
 tokenizer = tiktoken.encoding_for_model('gpt2')
 dataset = ds.load_dataset("HuggingFaceFW/fineweb-edu", "sample-10BT", split="train")
 TOTAL_EXAMPLES = len(dataset)
 def process_batch(text_batch):
     # Tokenize the batch with 16 threads
-    tokenized = tokenizer.encode_ordinary_batch(text_batch, num_threads=64)
+    tokenized = tokenizer.encode_ordinary_batch(text_batch, num_threads=16)
     processed_chunks = []
     for tokens in tokenized:
         # Split tokens into chunks of CHUNK_LENGTH
