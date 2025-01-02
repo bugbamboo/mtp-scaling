@@ -3,7 +3,6 @@ import tiktoken
 import torch
 from torch.utils.data import TensorDataset
 from multiprocessing import Pool
-from tqdm import tqdm
 import numpy as np
 
 CHUNK_LENGTH = 1030
@@ -41,11 +40,8 @@ def main():
     all_chunks = []
     results = []
     with Pool(processes=8) as pool:  # 4 workers * 16 threads each = 64 threads
-        with tqdm(total=TOTAL_EXAMPLES, desc="Processing examples") as pbar:
-            # Submit all batches to the pool
-            for text_batch in batch_iterator(dataset, BATCH_SIZE):
-                results.append(pool.apply_async(process_batch, args=(text_batch,)))
-                pbar.update(len(text_batch))
+        for text_batch in batch_iterator(dataset, BATCH_SIZE):
+            results.append(pool.apply_async(process_batch, args=(text_batch,)))
         
         # Collect all results without an additional progress bar
         for result in results:
